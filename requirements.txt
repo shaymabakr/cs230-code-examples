@@ -1,4 +1,2 @@
 numpy
 tensorflow>=1.4
-tabulate
-tqdm

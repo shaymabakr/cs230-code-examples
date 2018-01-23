@@ -41,15 +41,13 @@ def train_preprocess(image, label):
     return image, label
 
 
-def input_fn(is_training, filenames, params):
+def input_fn(filenames, params):
     """Input function for the SIGNS dataset.
 
     The filenames have format "{label}_IMG_{id}.jpg".
     For instance: "data_dir/2_IMG_4584.jpg".
 
     Args:
-        is_training: (bool) whether to use the train or test pipeline.
-                     At training, we shuffle the data and have multiple epochs
         filenames: (list) filenames of the images, as ["data_dir/{label}_IMG_{id}.jpg"...]
         params: (Params) contains hyperparameters of the model (ex: `params.num_epochs`)
     """
@@ -58,26 +56,18 @@ def input_fn(is_training, filenames, params):
     labels = [int(filename.split('/')[-1][0]) for filename in filenames]
 
     # Create a Dataset serving batches of images and labels
-    # We don't repeat for multiple epochs because we always train and evaluate for one epoch
-    if is_training:
-        dataset = (tf.data.Dataset.from_tensor_slices((tf.constant(filenames), tf.constant(labels)))
-            .shuffle(num_samples)  # whole dataset into the buffer ensures good shuffling
-            .map(_parse_function, num_parallel_calls=params.num_parallel_calls)
-            .map(train_preprocess, num_parallel_calls=params.num_parallel_calls)
-            .batch(params.batch_size)
-            .prefetch(1)  # make sure you always have one batch ready to serve
-        )
-    else:
-        dataset = (tf.data.Dataset.from_tensor_slices((tf.constant(filenames), tf.constant(labels)))
-            .map(_parse_function)
-            .batch(params.batch_size)
-            .prefetch(1)  # make sure you always have one batch ready to serve
-        )
+    dataset = (tf.data.Dataset.from_tensor_slices((tf.constant(filenames), tf.constant(labels)))
+        .shuffle(num_samples)  # whole dataset into the buffer ensures good shuffling
+        .repeat(params.num_epochs)
+        .map(_parse_function, num_parallel_calls=params.num_parallel_calls)
+        .map(train_preprocess, num_parallel_calls=params.num_parallel_calls)
+        .batch(params.batch_size)
+        .prefetch(1)  # make sure you always have one batch ready to serve
+    )
 
-    # Create reinitializable iterator from dataset
-    iterator = dataset.make_initializable_iterator()
+    # Create one shot iterator from dataset
+    iterator = dataset.make_one_shot_iterator()
     images, labels = iterator.get_next()
-    iterator_init_op = iterator.initializer
 
-    inputs = {'images': images, 'labels': labels, 'iterator_init_op': iterator_init_op}
+    inputs = {'images': images, 'labels': labels}
     return inputs
