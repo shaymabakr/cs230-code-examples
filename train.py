@@ -71,4 +71,4 @@ if __name__ == '__main__':
                 _, loss_val, acc_val = sess.run([model_spec['train_op'], model_spec['loss'],
                                         model_spec['accuracy']])
                 logging.info("Epoch {}, step {}, loss: {}, accuracy: {}"
-                             .format(epoch, step, loss_val, acc_val))
+                             .format(epoch + 1, step, loss_val, acc_val))
